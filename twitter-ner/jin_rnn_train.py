@@ -60,7 +60,7 @@ def main():
 def train(args):
     # load data
     print("Loading data ...")
-    [x, y, vocab, vocab_inv, num_classes] = data_helpers.load_twitter_rnn(True)
+    [x, y, vocab, vocab_inv, num_classes] = data_helpers.load_twitter_rnn(False)
 
     # shuffle and split data
     np.random.seed(10)
@@ -94,10 +94,8 @@ def train(args):
         os.makedirs(checkpoint_dir)
     checkpoint_prefix = os.path.join(checkpoint_dir, "model")
     saver = tf.train.Saver(tf.all_variables())
-
     # generate batches from data
     batches = data_helpers.batch_iter(x_train, y_train, args.batch_size, args.num_epochs)
-
     # start a session
     sess_conf = tf.ConfigProto(
             allow_soft_placement=args.allow_soft_placement,
@@ -106,11 +104,12 @@ def train(args):
     with sess.as_default():
         # initialize
         tf.initialize_all_variables().run()
-
+        f = open("codecount1.txt",'w')
+        #print sum(1 for x in batches) 
         for x_batch, y_batch in batches:
             # obtain start time
             time_str = datetime.datetime.now().isoformat()
-
+            
             # train
             feed = {model.inputs: x_batch, model.targets: y_batch}
             current_step, train_loss, _ = sess.run([model.global_step, model.cost, model.train_op], feed)
@@ -123,26 +122,41 @@ def train(args):
                 sum_accuracy = 0.0
                 sum_accuracy_sentence = 0.0
                 num_batches = 0
-
                 for x_dev_batch, y_dev_batch in dev_batches:
                     feed = {model.inputs: x_dev_batch, model.targets: y_dev_batch}
                     current_step, accuracy, accuracy_sentence, predictions_sentence, loss = sess.run(
                             [model.global_step, model.accuracy, model.accuracy_sentence, model.predictions_sentence,
                              model.cost],
                             feed)
-
+                    
                     for i in range(len(y_dev_batch)):
                         curr_sentence = x_dev_batch[i]
                         curr_target_codes = y_dev_batch[i]
                         curr_predicted_codes = predictions_sentence[i]
-
+                        
+                        if curr_predicted_codes[0] == 2:
+                            print>>f,curr_predicted_codes
+                            print>>f,curr_target_codes
+                            print>>f,num_batches
+                            print>>f,'\n'
+                        else:
+                            for k in range(len(curr_predicted_codes)-1):
+                                if curr_predicted_codes[k] == 0 and curr_predicted_codes[k+1] == 2:
+                                    print>>f,curr_predicted_codes
+                                    print>>f,curr_target_codes
+                                    print>>f,num_batches
+                                    print>>f,'\n'
+                                    break
+                        
                         # to see if the model predicts some difficult examples correctly
+                        '''
                         if ((1 in list(curr_predicted_codes) or 2 in list(curr_predicted_codes))
                             and list(curr_predicted_codes) == list(curr_target_codes)):
                             print ' '.join([vocab_inv[e] for e in curr_sentence])
                             print curr_target_codes
                             print curr_predicted_codes
-
+                        
+                        '''
                     sum_accuracy += accuracy
                     sum_accuracy_sentence += accuracy_sentence
                     num_batches += 1
@@ -155,6 +169,7 @@ def train(args):
                 path = saver.save(sess, checkpoint_prefix, global_step=tf.constant(current_step))
                 print "Saved model checkpoint to {}\n".format(path)
 
-
+        f.close()
+        
 if __name__ == '__main__':
     main()
